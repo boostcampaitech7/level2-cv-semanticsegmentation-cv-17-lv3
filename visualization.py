@@ -31,6 +31,17 @@ color_map = dict(zip(CLASSES, colors))
 def load_image(path):
     return np.array(Image.open(path).convert("RGB"))
 
+def rle_to_mask(rle, shape):
+    """ RLE 문자열을 디코딩하여 마스크 이미지를 반환합니다. """
+    s = rle.split()
+    starts, lengths = [np.asarray(x, dtype=int) for x in (s[0::2], s[1::2])]
+    starts -= 1
+    ends = starts + lengths
+    mask = np.zeros(shape[0] * shape[1], dtype=np.uint8)
+    for lo, hi in zip(starts, ends):
+        mask[lo:hi] = 1
+    return mask.reshape(shape)
+
 def draw_ann(image, polygons, labels, thickness=2):
     overlay = image.copy()
     for i, polygon_data in enumerate(polygons):
@@ -110,6 +121,94 @@ def train_viz(data_dir):
     goto_page = st.number_input("Go to Page", min_value=1, max_value=total_pages, value=page_index + 1, step=1)
     page_index = int(goto_page) - 1  # 입력된 페이지 번호에 따라 페이지 인덱스 변경
 
+def draw_mask(image, masks, labels, thickness=2):
+    overlay = image.copy()
+    for i, mask in enumerate(masks):
+        color = color_map.get(labels[i], (255, 255, 255))  # 클래스에 대응하는 색상
+        mask_indices = mask.nonzero()
+        overlay[mask_indices] = color
+
+        # 중심에 클래스 이름 표시
+        centroid = np.mean(np.column_stack(mask_indices), axis=0).astype(int)
+        cv2.putText(
+            overlay, labels[i], (centroid[1], centroid[0]),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA
+        )
+
+    # 투명도 적용
+    alpha = 0.6
+    result = cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
+    return result
+
+def test_viz(data_dir):
+    images_per_page = 2
+    csv_file = 'sample_submission.csv'
+    data = pd.read_csv(csv_file)
+
+    # 이미지 경로 목록 생성
+    image_path_list = []
+    for folder in sorted(os.listdir(data_dir)):
+        folder_path = os.path.join(data_dir, folder)
+        image_path_list.extend([os.path.join(folder_path, img) for img in sorted(os.listdir(folder_path))])
+
+    # 총 페이지 수 계산
+    total_pages = (len(image_path_list) + images_per_page - 1) // images_per_page
+
+    # 현재 페이지 설정
+    page_number = st.session_state.get("page_number", 1)
+    image_index = (page_number - 1) * images_per_page
+
+    # 페이지 이동 버튼
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Previous Image") and page_number > 1:
+            page_number -= 1
+    with col2:
+        if st.button("Next Image") and page_number < total_pages:
+            page_number += 1
+
+    # 페이지 번호 동기화
+    st.session_state["page_number"] = page_number
+    image_index = (page_number - 1) * images_per_page
+
+    # 현재 페이지에 표시할 이미지 가져오기
+    images_on_page = image_path_list[image_index:image_index + images_per_page]
+    annotated_images = []
+
+    for current_image_path in images_on_page:
+        image = Image.open(current_image_path)
+        image = np.array(image.convert("RGB"))
+
+        # 해당 이미지의 마스크와 클래스 정보 로드
+        masks = []
+        labels = []
+        image_name = current_image_path.split('/')[-1]
+        for _, row in data[data['image_name'] == image_name].iterrows():
+            label = row['class']
+            rle = row['rle']
+            if type(rle) == float:
+                continue
+            mask = rle_to_mask(rle, image.shape[:2])
+            masks.append(mask)
+            labels.append(label)
+
+        # 어노테이션이 적용된 이미지 생성
+        annotated_image = draw_mask(image, masks, labels)
+        annotated_images.append(annotated_image)
+
+    # 어노테이션 이미지를 한 줄에 나란히 표시
+    cols = st.columns(2)
+    for i, annotated_image in enumerate(annotated_images):
+        with cols[i]:
+            st.image(annotated_image, caption=f"Labeled Image: {images_on_page[i]}", use_container_width=True)
+
+    # 현재 페이지 / 전체 페이지 표시
+    st.markdown(f"### Page {page_number}/{total_pages}")
+
+    # 페이지 설정 입력 창을 아래에 표시
+    st.number_input("Set Page", min_value=1, max_value=total_pages, value=page_number, step=1, key="page_input")
+    page_number = st.session_state["page_input"]
+
 data_dir = st.sidebar.text_input("Data Directory", "data")
 mode = st.sidebar.selectbox("Mode", ["train", "test"])
 
@@ -119,7 +218,7 @@ st.write(f"Selected Mode: {mode}")
 # 선택한 data_dir과 mode를 사용해 앱의 주요 내용을 실행합니다.
 if mode == "test":
     data_dir = os.path.join(data_dir, 'test', 'DCM')
-    # test_viz(data_dir=data_dir) 후에 구현 예정
+    test_viz(data_dir=data_dir)
 elif mode == "train":
     data_dir = os.path.join(data_dir, 'train')
     train_viz(data_dir=data_dir)
