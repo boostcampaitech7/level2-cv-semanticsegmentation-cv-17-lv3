@@ -1,9 +1,9 @@
 import os
 
 # Paths for dataset
-TRAIN_IMAGE_ROOT = "/data/ephemeral/home/code/train/DCM"
-TEST_IMAGE_ROOT = "/data/ephemeral/home/code/test/DCM"
-LABEL_ROOT = "/data/ephemeral/home/code/train/outputs_json"
+TRAIN_IMAGE_ROOT = "../data/train/DCM"
+TEST_IMAGE_ROOT = "../data/test/DCM"
+LABEL_ROOT = "../data/train/outputs_json"
 
 # Class definitions
 CLASSES = [
@@ -28,6 +28,10 @@ VAL_EVERY = 1
 
 SAVED_DIR = "checkpoints"
 OUTPUTS_DIR = "outputs"
+
+# WandB settings
+PROJECT_NAME = 'project_name'
+EXP_NAME = None
 
 if not os.path.exists(SAVED_DIR):
     os.makedirs(SAVED_DIR)
