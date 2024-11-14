@@ -62,6 +62,25 @@ def draw_ann(image, polygons, labels, thickness=2):
     result = cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
     return result
 
+def draw_mask(image, masks, labels, thickness=2):
+    overlay = image.copy()
+    for i, mask in enumerate(masks):
+        color = color_map.get(labels[i], (255, 255, 255))  # 클래스에 대응하는 색상
+        mask_indices = mask.nonzero()
+        overlay[mask_indices] = color
+
+        # 중심에 클래스 이름 표시
+        centroid = np.mean(np.column_stack(mask_indices), axis=0).astype(int)
+        cv2.putText(
+            overlay, labels[i], (centroid[1], centroid[0]),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA
+        )
+
+    # 투명도 적용
+    alpha = 0.6
+    result = cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
+    return result
+
 def train_viz(data_dir):
     image_dir = os.path.join(data_dir, 'DCM')
     json_dir = os.path.join(data_dir, 'outputs_json')
@@ -71,20 +90,32 @@ def train_viz(data_dir):
         folder_path = os.path.join(image_dir, folder)
         image_paths.extend([os.path.join(folder_path, img) for img in sorted(os.listdir(folder_path))])
 
-    # 페이지 인덱스 관리
-    page_index = st.session_state.get("page_index", 0)
+    # 총 페이지 수 계산
     total_pages = (len(image_paths) + NUM_IMAGES_PER_PAGE - 1) // NUM_IMAGES_PER_PAGE
+
+    # 현재 페이지 인덱스 설정
+    if "page_index" not in st.session_state:
+        st.session_state["page_index"] = 0
+    page_index = st.session_state["page_index"]
 
     # 페이지 이동 버튼과 입력란을 같은 줄에 배치
     col1, col2, col3 = st.columns([1, 2, 1])
     with col1:
         if st.button("Previous Page") and page_index > 0:
-            page_index -= 1
+            st.session_state["page_index"] -= 1
+            page_index = st.session_state["page_index"]
     with col3:
         if st.button("Next Page") and page_index < total_pages - 1:
-            page_index += 1
+            st.session_state["page_index"] += 1
+            page_index = st.session_state["page_index"]
 
-    st.session_state["page_index"] = page_index
+    # 페이지 설정 입력 창
+    new_page = st.number_input("Go to Page", min_value=1, max_value=total_pages, value=page_index + 1, step=1, key="page_input")
+
+    # 페이지 입력이 기존 페이지 인덱스와 다를 경우 업데이트
+    if new_page - 1 != page_index:
+        st.session_state["page_index"] = new_page - 1
+        page_index = new_page - 1
 
     # 현재 페이지의 이미지 가져오기
     start_idx = page_index * NUM_IMAGES_PER_PAGE
@@ -115,30 +146,8 @@ def train_viz(data_dir):
                 row_columns = st.columns(4)
         row_columns[col].image(annotated_image, caption=f'{image_path}', use_container_width=True)
 
-    # 페이지 정보 출력
+    # 현재 페이지 / 전체 페이지 표시
     st.write(f"Page {page_index + 1}/{total_pages}")
-
-    goto_page = st.number_input("Go to Page", min_value=1, max_value=total_pages, value=page_index + 1, step=1)
-    page_index = int(goto_page) - 1  # 입력된 페이지 번호에 따라 페이지 인덱스 변경
-
-def draw_mask(image, masks, labels, thickness=2):
-    overlay = image.copy()
-    for i, mask in enumerate(masks):
-        color = color_map.get(labels[i], (255, 255, 255))  # 클래스에 대응하는 색상
-        mask_indices = mask.nonzero()
-        overlay[mask_indices] = color
-
-        # 중심에 클래스 이름 표시
-        centroid = np.mean(np.column_stack(mask_indices), axis=0).astype(int)
-        cv2.putText(
-            overlay, labels[i], (centroid[1], centroid[0]),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA
-        )
-
-    # 투명도 적용
-    alpha = 0.6
-    result = cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
-    return result
 
 def test_viz(data_dir):
     images_per_page = 2
@@ -155,23 +164,31 @@ def test_viz(data_dir):
     total_pages = (len(image_path_list) + images_per_page - 1) // images_per_page
 
     # 현재 페이지 설정
-    page_number = st.session_state.get("page_number", 1)
-    image_index = (page_number - 1) * images_per_page
+    if "page_number" not in st.session_state:
+        st.session_state["page_number"] = 1
+    page_number = st.session_state["page_number"]
 
     # 페이지 이동 버튼
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Previous Image") and page_number > 1:
-            page_number -= 1
+            st.session_state["page_number"] -= 1
+            page_number = st.session_state["page_number"]
     with col2:
         if st.button("Next Image") and page_number < total_pages:
-            page_number += 1
+            st.session_state["page_number"] += 1
+            page_number = st.session_state["page_number"]
 
-    # 페이지 번호 동기화
-    st.session_state["page_number"] = page_number
-    image_index = (page_number - 1) * images_per_page
+    # 페이지 설정 입력 창을 아래에 표시
+    new_page = st.number_input("Set Page", min_value=1, max_value=total_pages, value=page_number, step=1, key="page_input")
+    
+    # 만약 입력된 페이지가 현재 세션 상태와 다를 경우 업데이트
+    if new_page != page_number:
+        st.session_state["page_number"] = new_page
+        page_number = new_page
 
     # 현재 페이지에 표시할 이미지 가져오기
+    image_index = (page_number - 1) * images_per_page
     images_on_page = image_path_list[image_index:image_index + images_per_page]
     annotated_images = []
 
@@ -204,10 +221,10 @@ def test_viz(data_dir):
 
     # 현재 페이지 / 전체 페이지 표시
     st.markdown(f"### Page {page_number}/{total_pages}")
-
-    # 페이지 설정 입력 창을 아래에 표시
-    st.number_input("Set Page", min_value=1, max_value=total_pages, value=page_number, step=1, key="page_input")
-    page_number = st.session_state["page_input"]
+    
+    # 입력된 페이지 번호에 따라 `page_number` 업데이트
+    if new_page != st.session_state["page_number"]:
+        st.session_state["page_number"] = new_page
 
 data_dir = st.sidebar.text_input("Data Directory", "data")
 mode = st.sidebar.selectbox("Mode", ["train", "test"])
