@@ -25,7 +25,9 @@ THRESHOLD = 0.5
 
 NUM_EPOCHS = 5
 VAL_EVERY = 1
+NUM_CKPT = 3
 
+RESUME = None
 SAVED_DIR = "checkpoints"
 OUTPUTS_DIR = "outputs"
 

@@ -49,6 +49,8 @@ code/checkpoints/
 code/outputs/
 *.ipynb
 *.csv
+*.xlsx
+*.pt
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

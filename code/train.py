@@ -1,5 +1,6 @@
 from dataset import XRayDataset
-from config import NUM_EPOCHS, BATCH_SIZE, LR, CLASSES, SAVED_DIR, RANDOM_SEED, VAL_EVERY, THRESHOLD, PROJECT_NAME, EXP_NAME
+from config import NUM_EPOCHS, BATCH_SIZE, LR, CLASSES, SAVED_DIR, RANDOM_SEED, VAL_EVERY, THRESHOLD, PROJECT_NAME, EXP_NAME, NUM_CKPT, RESUME
+
 import argparse
 
 import segmentation_models_pytorch as smp
@@ -46,12 +47,52 @@ def dice_coef(y_true, y_pred):
 SAVED_DIR을 수정하면 원하는 DIR로 저장할 수 있습니다!!
 file_name도 수정하면 checkpoint를 원하는 이름으로 저장 가능!
 '''
-def save_model(model, file_name='best_model.pt'):
-    if not os.path.exists(SAVED_DIR):
-        os.makedirs(SAVED_DIR)
+class ModelCheckpoint:
+    def __init__(self):
+        self.best_models = []
+        self.high_dice = 0.0
+        
+        if not os.path.exists(SAVED_DIR):
+            os.makedirs(SAVED_DIR)
 
-    output_path = os.path.join(SAVED_DIR, file_name)
-    torch.save(model, output_path)
+    def save_ckpt(self, model, path):
+        torch.save(model.state_dict(), path)
+
+    def delete_ckpt(self):
+        dice_remove, epoch_remove, path_remove = self.best_models.pop(-1)
+        if os.path.exists(path_remove):
+            os.remove(path_remove)
+            print(f"Delete model for epoch {epoch_remove+1} with dice = {dice_remove:.4f}")
+
+    def save_model(self, model, epoch, loss, dice):
+        model_file_name = f'epoch_{epoch+1}_dice_{dice:.4f}_loss_{loss:.4f}.pt'
+        current_path = os.path.join(SAVED_DIR, model_file_name)
+
+        if len(self.best_models) < NUM_CKPT:
+            # num_ckpt 개수보다 적으면 모델 저장
+            self.save_ckpt(model, current_path)
+            self.best_models.append((dice, epoch, current_path))
+            print(f"Save model for epoch {epoch+1} with dice = {dice:.4f}")
+
+        elif dice > self.best_models[-1][0]:
+            # dice가 더 높다면 가장 낮은 모델 제거 후 새 모델 저장
+            self.delete_ckpt()
+            self.save_ckpt(model, current_path)
+            self.best_models.append((dice, epoch, current_path))
+            print(f"Save model for epoch {epoch+1} with dice = {dice:.4f}")
+
+        if dice > self.high_dice:
+            # 최고 dice 갱신
+            print(f"Best performance at epoch: {epoch + 1}, {self.high_dice:.4f} -> {dice:.4f}")
+            self.high_dice = dice
+        self.best_models.sort(reverse=True)
+
+    def save_best_model(self, model):
+        # 가장 높은 dice 모델 저장
+        best_model_path = os.path.join(SAVED_DIR, 'best_model.pt')
+        best_dice, best_epoch, _ = self.best_models[0]
+        torch.save(model.state_dict(), best_model_path)
+        print(f"Best model saved for epoch {best_epoch+1} with highest dice = {best_dice:.4f}")
 
 def set_seed():
     torch.manual_seed(RANDOM_SEED)
@@ -94,6 +135,10 @@ def train(args):
         classes=29,                     # model output channels (number of classes in your dataset)
     )
 
+    if RESUME is not None:
+        checkpoint = torch.load(RESUME)
+        model.load_state_dict(checkpoint) 
+
     # Resize 변경하고 싶으면 변경
     '''
     1024도 좋아보입니다!
@@ -135,8 +180,7 @@ def train(args):
     # 시드를 설정합니다.
     set_seed()
 
-    n_class = len(CLASSES)
-    best_dice = 0.
+    checkpoint = ModelCheckpoint()
 
     for epoch in range(NUM_EPOCHS):
         model.train()
@@ -237,12 +281,12 @@ def train(args):
                     **{f"dice_{cls}": score for cls, score in zip(CLASSES, dices_per_class)}
                 })
                 
-                if best_dice < avg_dice:
-                    print(f"Best performance at epoch: {epoch + 1}, {best_dice:.4f} -> {avg_dice:.4f}")
-                    print(f"Save model in {SAVED_DIR}")
-                    best_dice = avg_dice
-                    save_model(model)
+
+                checkpoint.save_model(model, epoch, mean_valid_loss, avg_dice)
+    checkpoint.save_best_model(model)
+
     wandb.finish()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -257,8 +301,15 @@ if __name__ == "__main__":
     # data
     parser.add_argument('--n_splits', type=int, default="5")
     parser.add_argument('--n_fold', type=int, default="0")
+
     parser.add_argument('--project', type=str, default=PROJECT_NAME)
     parser.add_argument('--exp_name', default=EXP_NAME)
+    
+    # num_ckpt
+    parser.add_argument('--n_ckpt', type=int, default=3)
+
+    # resume
+    parser.add_argument('--resume', type=str, default=None)
 
     args = parser.parse_args()
 
