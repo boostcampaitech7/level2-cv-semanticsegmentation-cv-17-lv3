@@ -1,10 +1,11 @@
 from dataset import XRayDataset
-from config import NUM_EPOCHS, BATCH_SIZE, LR, CLASSES, SAVED_DIR, RANDOM_SEED, VAL_EVERY, THRESHOLD
+from config import NUM_EPOCHS, BATCH_SIZE, LR, CLASSES, SAVED_DIR, RANDOM_SEED, VAL_EVERY, THRESHOLD, PROJECT_NAME, EXP_NAME
 import argparse
 
 import segmentation_models_pytorch as smp
 
 import time
+import wandb
 
 # python native
 import os
@@ -62,6 +63,22 @@ def set_seed():
     random.seed(RANDOM_SEED)
 
 def train(args):
+    wandb_config = {
+        "project": args.project,
+        "config": {
+            "optimizer": args.optimizer,
+            "learning_rate": LR,
+            "batch_size": BATCH_SIZE,
+            "epochs": NUM_EPOCHS,
+            "num_classes": len(CLASSES),
+        },
+    }
+
+    if args.exp_name is not None:
+        wandb_config["name"] = args.exp_name
+
+    wandb.init(**wandb_config)
+
     print(f'Start training..')
 
     # model 불러오기
@@ -143,6 +160,10 @@ def train(args):
 
             total_train_loss += loss.item()
 
+            # 현재 학습률 가져오기
+            current_lr = optimizer.param_groups[0]['lr']
+            wandb.log({"train_loss": loss.item(), "learning_rate": current_lr})
+
             # step 주기에 따라 loss를 출력합니다.
             if (step + 1) % 20 == 0:
                 print(
@@ -208,12 +229,20 @@ def train(args):
                 
                 # mean dice coefficient
                 avg_dice = torch.mean(dices_per_class).item()
+
+                wandb.log({
+                    "epoch": epoch + 1,
+                    "valid_loss": mean_valid_loss,
+                    "avg_dice": avg_dice,
+                    **{f"dice_{cls}": score for cls, score in zip(CLASSES, dices_per_class)}
+                })
                 
                 if best_dice < avg_dice:
                     print(f"Best performance at epoch: {epoch + 1}, {best_dice:.4f} -> {avg_dice:.4f}")
                     print(f"Save model in {SAVED_DIR}")
                     best_dice = avg_dice
                     save_model(model)
+    wandb.finish()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -228,7 +257,8 @@ if __name__ == "__main__":
     # data
     parser.add_argument('--n_splits', type=int, default="5")
     parser.add_argument('--n_fold', type=int, default="0")
-
+    parser.add_argument('--project', type=str, default=PROJECT_NAME)
+    parser.add_argument('--exp_name', default=EXP_NAME)
 
     args = parser.parse_args()
 
