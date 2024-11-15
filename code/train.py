@@ -102,10 +102,6 @@ def set_seed():
     random.seed(RANDOM_SEED)
 
 def train(args):
-    if RESUME is not None:
-        checkpoint = torch.load(RESUME)
-        model.load_state_dict(checkpoint) 
-           
     print(f'Start training..')
 
     # model 불러오기
@@ -120,6 +116,10 @@ def train(args):
         in_channels=3,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
         classes=29,                     # model output channels (number of classes in your dataset)
     )
+
+    if RESUME is not None:
+        checkpoint = torch.load(RESUME)
+        model.load_state_dict(checkpoint) 
 
     # Resize 변경하고 싶으면 변경
     '''
