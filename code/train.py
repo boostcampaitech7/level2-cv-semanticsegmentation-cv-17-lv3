@@ -48,39 +48,42 @@ file_name도 수정하면 checkpoint를 원하는 이름으로 저장 가능!
 class ModelCheckpoint:
     def __init__(self):
         self.best_models = []
-        self.high_acc = 0.0
-
+        self.high_dice = 0.0
+        
         if not os.path.exists(SAVED_DIR):
             os.makedirs(SAVED_DIR)
 
-    def save_model(self, model, epoch, loss, acc):
-        model_file_name = f'epoch_{epoch+1}_acc_{acc:.4f}_loss_{loss:.4f}.pt'
-        current_model_path = os.path.join(SAVED_DIR, model_file_name)
-        # 최상위 모델 리스트가 num_ckpt 개수보다 적으면 일단 저장
+    def save_ckpt(self, model, path):
+        torch.save(model.state_dict(), path)
+
+    def delete_ckpt(self):
+        dice_remove, epoch_remove, path_remove = self.best_models.pop(-1)
+        if os.path.exists(path_remove):
+            os.remove(path_remove)
+            print(f"Delete model for epoch {epoch_remove+1} with dice = {dice_remove:.4f}")
+
+    def save_model(self, model, epoch, loss, dice):
+        model_file_name = f'epoch_{epoch+1}_dice_{dice:.4f}_loss_{loss:.4f}.pt'
+        current_path = os.path.join(SAVED_DIR, model_file_name)
+
         if len(self.best_models) < NUM_CKPT:
-            torch.save(model.state_dict(), current_model_path)
-            print(f"Save model for epoch {epoch+1} with accuracy = {acc:.4f}")
-            self.best_models.append((acc, epoch, current_model_path))
-            self.best_models.sort(reverse=True)
-            
-            # 최고 정확도 갱신
-            if acc > self.high_acc:
-                print(f"Best performance at epoch: {epoch + 1}, {self.high_acc:.4f} -> {acc:.4f}")
-                self.high_acc = acc
+            # num_ckpt 개수보다 적으면 모델 저장
+            self.save_ckpt(model, current_path)
+            self.best_models.append((dice, epoch, current_path))
+            print(f"Save model for epoch {epoch+1} with dice = {dice:.4f}")
 
-        # num_ckpt 개수가 채워졌으면 가장 낮은 정확도의 모델과 비교
-        elif acc > self.best_models[-1][0]:
-            # 기존 최저 정확도의 모델 삭제
-            acc_remove, epoch_remove, path_to_remove = self.best_models.pop(-1)
-            if os.path.exists(path_to_remove):
-                os.remove(path_to_remove)
-                print(f"Delete model for epoch {epoch_remove+1} with accuracy = {acc_remove:.4f}")
+        elif dice > self.best_models[-1][0]:
+            # dice가 더 높다면 가장 낮은 모델 제거 후 새 모델 저장
+            self.delete_ckpt()
+            self.save_ckpt(model, current_path)
+            self.best_models.append((dice, epoch, current_path))
+            print(f"Save model for epoch {epoch+1} with dice = {dice:.4f}")
 
-            # 새로운 모델 저장
-            torch.save(model.state_dict(), current_model_path)
-            print(f"Save model for epoch {epoch+1} with accuracy = {acc:.4f}")
-            self.best_models.append((acc, epoch, current_model_path))
-            self.best_models.sort(reverse=True)
+        if dice > self.high_dice:
+            # 최고 dice 갱신
+            print(f"Best performance at epoch: {epoch + 1}, {self.high_dice:.4f} -> {dice:.4f}")
+            self.high_dice = dice
+        self.best_models.sort(reverse=True)
 
             # 최고 정확도 갱신
             if acc > self.high_acc:
@@ -88,12 +91,11 @@ class ModelCheckpoint:
                 self.high_acc = acc
 
     def save_best_model(self, model):
-        # 가장 높은 정확도의 모델 저장
+        # 가장 높은 dice 모델 저장
         best_model_path = os.path.join(SAVED_DIR, 'best_model.pt')
-        best_acc, best_epoch, _ = self.best_models[0]
+        best_dice, best_epoch, _ = self.best_models[0]
         torch.save(model.state_dict(), best_model_path)
-        print(f"Best model saved for epoch {best_epoch+1} with highest accuracy = {best_acc:.4f}")
-
+        print(f"Best model saved for epoch {best_epoch+1} with highest dice = {best_dice:.4f}")
 
 def set_seed():
     torch.manual_seed(RANDOM_SEED)
@@ -278,7 +280,7 @@ if __name__ == "__main__":
 
     # resume
     parser.add_argument('--resume', type=str, default=None)
-    
+
     args = parser.parse_args()
 
     train(args)
