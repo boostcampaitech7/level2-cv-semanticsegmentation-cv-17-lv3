@@ -105,6 +105,10 @@ def set_seed():
     random.seed(RANDOM_SEED)
 
 def train(args):
+    if RESUME is not None:
+        checkpoint = torch.load(RESUME)
+        model.load_state_dict(checkpoint) 
+           
     print(f'Start training..')
 
     # model 불러오기
@@ -272,6 +276,9 @@ if __name__ == "__main__":
     # num_ckpt
     parser.add_argument('--n_ckpt', type=int, default=3)
 
+    # resume
+    parser.add_argument('--resume', type=str, default=None)
+    
     args = parser.parse_args()
 
     train(args)
