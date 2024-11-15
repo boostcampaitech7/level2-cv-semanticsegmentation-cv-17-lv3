@@ -1,5 +1,5 @@
 from dataset import XRayDataset
-from config import NUM_EPOCHS, BATCH_SIZE, LR, CLASSES, SAVED_DIR, RANDOM_SEED, VAL_EVERY, THRESHOLD
+from config import NUM_EPOCHS, BATCH_SIZE, LR, CLASSES, SAVED_DIR, RANDOM_SEED, VAL_EVERY, THRESHOLD, NUM_CKPT, RESUME
 import argparse
 
 import segmentation_models_pytorch as smp
@@ -45,12 +45,55 @@ def dice_coef(y_true, y_pred):
 SAVED_DIR을 수정하면 원하는 DIR로 저장할 수 있습니다!!
 file_name도 수정하면 checkpoint를 원하는 이름으로 저장 가능!
 '''
-def save_model(model, file_name='best_model.pt'):
-    if not os.path.exists(SAVED_DIR):
-        os.makedirs(SAVED_DIR)
+class ModelCheckpoint:
+    def __init__(self):
+        self.best_models = []
+        self.high_acc = 0.0
 
-    output_path = os.path.join(SAVED_DIR, file_name)
-    torch.save(model, output_path)
+        if not os.path.exists(SAVED_DIR):
+            os.makedirs(SAVED_DIR)
+
+    def save_model(self, model, epoch, loss, acc):
+        model_file_name = f'epoch_{epoch+1}_acc_{acc:.4f}_loss_{loss:.4f}.pt'
+        current_model_path = os.path.join(SAVED_DIR, model_file_name)
+        # 최상위 모델 리스트가 num_ckpt 개수보다 적으면 일단 저장
+        if len(self.best_models) < NUM_CKPT:
+            torch.save(model.state_dict(), current_model_path)
+            print(f"Save model for epoch {epoch+1} with accuracy = {acc:.4f}")
+            self.best_models.append((acc, epoch, current_model_path))
+            self.best_models.sort(reverse=True)
+            
+            # 최고 정확도 갱신
+            if acc > self.high_acc:
+                print(f"Best performance at epoch: {epoch + 1}, {self.high_acc:.4f} -> {acc:.4f}")
+                self.high_acc = acc
+
+        # num_ckpt 개수가 채워졌으면 가장 낮은 정확도의 모델과 비교
+        elif acc > self.best_models[-1][0]:
+            # 기존 최저 정확도의 모델 삭제
+            acc_remove, epoch_remove, path_to_remove = self.best_models.pop(-1)
+            if os.path.exists(path_to_remove):
+                os.remove(path_to_remove)
+                print(f"Delete model for epoch {epoch_remove+1} with accuracy = {acc_remove:.4f}")
+
+            # 새로운 모델 저장
+            torch.save(model.state_dict(), current_model_path)
+            print(f"Save model for epoch {epoch+1} with accuracy = {acc:.4f}")
+            self.best_models.append((acc, epoch, current_model_path))
+            self.best_models.sort(reverse=True)
+
+            # 최고 정확도 갱신
+            if acc > self.high_acc:
+                print(f"Best performance at epoch: {epoch + 1}, {self.high_acc:.4f} -> {acc:.4f}")
+                self.high_acc = acc
+
+    def save_best_model(self, model):
+        # 가장 높은 정확도의 모델 저장
+        best_model_path = os.path.join(SAVED_DIR, 'best_model.pt')
+        best_acc, best_epoch, _ = self.best_models[0]
+        torch.save(model.state_dict(), best_model_path)
+        print(f"Best model saved for epoch {best_epoch+1} with highest accuracy = {best_acc:.4f}")
+
 
 def set_seed():
     torch.manual_seed(RANDOM_SEED)
@@ -118,8 +161,7 @@ def train(args):
     # 시드를 설정합니다.
     set_seed()
 
-    n_class = len(CLASSES)
-    best_dice = 0.
+    checkpoint = ModelCheckpoint()
 
     for epoch in range(NUM_EPOCHS):
         model.train()
@@ -209,11 +251,9 @@ def train(args):
                 # mean dice coefficient
                 avg_dice = torch.mean(dices_per_class).item()
                 
-                if best_dice < avg_dice:
-                    print(f"Best performance at epoch: {epoch + 1}, {best_dice:.4f} -> {avg_dice:.4f}")
-                    print(f"Save model in {SAVED_DIR}")
-                    best_dice = avg_dice
-                    save_model(model)
+                checkpoint.save_model(model, epoch, mean_valid_loss, avg_dice)
+
+    checkpoint.save_best_model(model)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -229,6 +269,8 @@ if __name__ == "__main__":
     parser.add_argument('--n_splits', type=int, default="5")
     parser.add_argument('--n_fold', type=int, default="0")
 
+    # num_ckpt
+    parser.add_argument('--n_ckpt', type=int, default=3)
 
     args = parser.parse_args()
 
