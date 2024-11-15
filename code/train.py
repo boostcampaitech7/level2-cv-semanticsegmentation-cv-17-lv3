@@ -85,11 +85,6 @@ class ModelCheckpoint:
             self.high_dice = dice
         self.best_models.sort(reverse=True)
 
-            # 최고 정확도 갱신
-            if acc > self.high_acc:
-                print(f"Best performance at epoch: {epoch + 1}, {self.high_acc:.4f} -> {acc:.4f}")
-                self.high_acc = acc
-
     def save_best_model(self, model):
         # 가장 높은 dice 모델 저장
         best_model_path = os.path.join(SAVED_DIR, 'best_model.pt')
