@@ -49,6 +49,9 @@ code/checkpoints/
 code/outputs/
 *.ipynb
 *.csv
+#여기에다 넣으면됨
+*.xlsx
+*.pt
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
