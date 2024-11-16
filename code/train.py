@@ -304,12 +304,6 @@ if __name__ == "__main__":
 
     parser.add_argument('--project', type=str, default=PROJECT_NAME)
     parser.add_argument('--exp_name', default=EXP_NAME)
-    
-    # num_ckpt
-    parser.add_argument('--n_ckpt', type=int, default=3)
-
-    # resume
-    parser.add_argument('--resume', type=str, default=None)
 
     args = parser.parse_args()
 
