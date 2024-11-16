@@ -136,8 +136,7 @@ def train(args):
     )
 
     if RESUME is not None:
-        checkpoint = torch.load(RESUME)
-        model.load_state_dict(checkpoint) 
+        model = torch.load(RESUME)
 
     # Resize 변경하고 싶으면 변경
     '''
