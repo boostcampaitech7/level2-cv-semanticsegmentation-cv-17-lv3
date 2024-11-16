@@ -105,6 +105,7 @@ def set_seed():
 
 def train(args):
     wandb_config = {
+        "entity" : 'cv-17_segmentation',
         "project": args.project,
         "config": {
             "optimizer": args.optimizer,
