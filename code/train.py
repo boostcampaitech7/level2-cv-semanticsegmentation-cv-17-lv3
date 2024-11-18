@@ -56,7 +56,7 @@ class ModelCheckpoint:
             os.makedirs(SAVED_DIR)
 
     def save_ckpt(self, model, path):
-        torch.save(model.state_dict(), path)
+        torch.save(model, path)
 
     def delete_ckpt(self):
         dice_remove, epoch_remove, path_remove = self.best_models.pop(-1)
@@ -91,7 +91,7 @@ class ModelCheckpoint:
         # 가장 높은 dice 모델 저장
         best_model_path = os.path.join(SAVED_DIR, 'best_model.pt')
         best_dice, best_epoch, _ = self.best_models[0]
-        torch.save(model.state_dict(), best_model_path)
+        torch.save(model, best_model_path)
         print(f"Best model saved for epoch {best_epoch+1} with highest dice = {best_dice:.4f}")
 
 def set_seed():
@@ -105,6 +105,7 @@ def set_seed():
 
 def train(args):
     wandb_config = {
+        "entity" : 'cv-17_segmentation',
         "project": args.project,
         "config": {
             "optimizer": args.optimizer,
@@ -136,8 +137,7 @@ def train(args):
     )
 
     if RESUME is not None:
-        checkpoint = torch.load(RESUME)
-        model.load_state_dict(checkpoint) 
+        model = torch.load(RESUME)
 
     # Resize 변경하고 싶으면 변경
     '''
@@ -304,12 +304,6 @@ if __name__ == "__main__":
 
     parser.add_argument('--project', type=str, default=PROJECT_NAME)
     parser.add_argument('--exp_name', default=EXP_NAME)
-    
-    # num_ckpt
-    parser.add_argument('--n_ckpt', type=int, default=3)
-
-    # resume
-    parser.add_argument('--resume', type=str, default=None)
 
     args = parser.parse_args()
 
