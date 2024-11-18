@@ -70,16 +70,8 @@ def test(model_name):
 
     model = torch.load(os.path.join(args.saved_dir, args.model_name))
 
-    transforms = tta.Compose(
-        [
-            tta.HorizontalFlip()
-        ]
-    )
-
-    tta_model = tta.SegmentationTTAWrapper(model, transforms)
-
-    tta_model = model.cuda()
-    tta_model.eval()
+    model = model.cuda()
+    model.eval()
 
     tf = A.Resize(512, 512)
 
@@ -101,7 +93,7 @@ def test(model_name):
 
         for step, (images, image_names) in tqdm(enumerate(test_loader), total=len(test_loader)):
             images = images.cuda()
-            outputs = tta_model(images)
+            outputs = model(images)
 
             outputs = F.interpolate(outputs, size=(2048, 2048), mode="bilinear")
             outputs = torch.sigmoid(outputs)
