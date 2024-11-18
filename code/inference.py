@@ -1,6 +1,7 @@
 from dataset import XRayInferenceDataset
-from config import CLASSES, IND2CLASS, SAVED_DIR, TEST_IMAGE_ROOT, RANDOM_SEED, OUTPUTS_DIR
+import config as cf
 import argparse
+import ttach as tta
 
 # python native
 import os
@@ -56,18 +57,18 @@ def decode_rle_to_mask(rle, height, width):
     return img.reshape(height, width)
 
 def set_seed():
-    torch.manual_seed(RANDOM_SEED)
-    torch.cuda.manual_seed(RANDOM_SEED)
-    torch.cuda.manual_seed_all(RANDOM_SEED) # if use multi-GPU
+    torch.manual_seed(args.random_seed)
+    torch.cuda.manual_seed(args.random_seed)
+    torch.cuda.manual_seed_all(args.random_seed) # if use multi-GPU
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-    np.random.seed(RANDOM_SEED)
-    random.seed(RANDOM_SEED)
+    np.random.seed(args.random_seed)
+    random.seed(args.random_seed)
 
 def test(model_name):
     set_seed()
 
-    model = torch.load(os.path.join(SAVED_DIR, model_name))
+    model = torch.load(os.path.join(args.saved_dir, args.model_name))
 
     model = model.cuda()
     model.eval()
@@ -88,7 +89,7 @@ def test(model_name):
     rles = []
     filename_and_class = []
     with torch.no_grad():
-        n_class = len(CLASSES)
+        n_class = len(args.classes)
 
         for step, (images, image_names) in tqdm(enumerate(test_loader), total=len(test_loader)):
             images = images.cuda()
@@ -102,7 +103,7 @@ def test(model_name):
                 for c, segm in enumerate(output):
                     rle = encode_mask_to_rle(segm)
                     rles.append(rle)
-                    filename_and_class.append(f"{IND2CLASS[c]}_{image_name}")
+                    filename_and_class.append(f"{args.ind2class[c]}_{image_name}")
 
     # to csv
     classes, filename = zip(*[x.split("_") for x in filename_and_class])
@@ -114,14 +115,20 @@ def test(model_name):
         "rle": rles,
     })
 
-    output_csv_path = os.path.join(OUTPUTS_DIR, "best_model.csv")
+    output_csv_path = os.path.join(args.outputs_dir, args.outputs_name)
     
     df.to_csv(output_csv_path, index=False)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--model_name', type=str, default="best_model.pt", help="load model named {model_name} (default : best_model.pt))")
+    parser.add_argument('--model_name', type=str, default=cf.MODEL_NAME)
+    parser.add_argument('--saved_dir', type=str, default=cf.SAVED_DIR)
+    parser.add_argument('--random_seed', type=str, default=cf.RANDOM_SEED)
+    parser.add_argument('--classes', type=str, default=cf.CLASSES)
+    parser.add_argument('--ind2class', type=str, default=cf.IND2CLASS)
+    parser.add_argument('--outputs_dir', type=str, default=cf.OUTPUTS_DIR)
+    parser.add_argument('--outputs_name', type=str, default=cf.OUTPUTS_NAME)
 
     args = parser.parse_args()
-    test(**args.__dict__)
+    test(args)

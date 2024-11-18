@@ -28,8 +28,20 @@ VAL_EVERY = 1
 NUM_CKPT = 3
 
 RESUME = None
-SAVED_DIR = "checkpoints"
-OUTPUTS_DIR = "outputs"
+SAVED_DIR = "./checkpoints"
+OUTPUTS_DIR = "./outputs"
+
+OPTIMIZER = "adam"
+
+# Data
+SPLITS = 5
+FOLD = 0
+
+# model
+ENCODER_MODEL = "efficientnet-b0"
+ENCODER_MODEL_WEIGHTS = "imagenet"
+MODEL_NAME = "best_model.pt"
+OUTPUTS_NAME = "best_model.csv"
 
 # WandB settings
 PROJECT_NAME = 'project_name'
