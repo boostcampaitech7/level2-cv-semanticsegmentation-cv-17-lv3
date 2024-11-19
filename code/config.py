@@ -1,4 +1,5 @@
 import os
+import albumentations as A
 
 # Paths for dataset
 TRAIN_IMAGE_ROOT = "../data/train/DCM"
@@ -36,6 +37,16 @@ OPTIMIZER = "adam"
 # Data
 SPLITS = 5
 FOLD = 0
+
+# Transforms
+transforms = {
+    'train': A.Compose([
+        A.Resize(512, 512)
+    ]),
+    'val': A.Compose([
+        A.Resize(512, 512)
+    ])
+}
 
 # model
 ENCODER_MODEL = "efficientnet-b0"
