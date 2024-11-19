@@ -80,7 +80,6 @@ def validate(model, valid_loader, criterion, args):
         
         # mean dice coefficient
         avg_dice = torch.mean(dices_per_class).item()
-        print(f"Avg dice : {round(avg_dice, 4)}")
     
     return avg_dice, dices_per_class, mean_valid_loss
 
@@ -315,13 +314,13 @@ if __name__ == "__main__":
     parser.add_argument('--ind2class', type=str, default=cf.IND2CLASS)
 
     # parameters
-    parser.add_argument('--batch_size', type=str, default=cf.BATCH_SIZE)
-    parser.add_argument('--lr', type=str, default=cf.LR)
-    parser.add_argument('--random_seed', type=str, default=cf.RANDOM_SEED)
-    parser.add_argument('--threshold', type=str, default=cf.THRESHOLD)
-    parser.add_argument('--num_epochs', type=str, default=cf.NUM_EPOCHS)
-    parser.add_argument('--val_every', type=str, default=cf.VAL_EVERY)
-    parser.add_argument('--num_ckpt', type=str, default=cf.NUM_CKPT)
+    parser.add_argument('--batch_size', type=int, default=cf.BATCH_SIZE)
+    parser.add_argument('--lr', type=float, default=cf.LR)
+    parser.add_argument('--random_seed', type=int, default=cf.RANDOM_SEED)
+    parser.add_argument('--threshold', type=float, default=cf.THRESHOLD)
+    parser.add_argument('--num_epochs', type=int, default=cf.NUM_EPOCHS)
+    parser.add_argument('--val_every', type=int, default=cf.VAL_EVERY)
+    parser.add_argument('--num_ckpt', type=int, default=cf.NUM_CKPT)
 
     # dir
     parser.add_argument('--resume', type=str, default=cf.RESUME)
