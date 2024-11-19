@@ -180,14 +180,11 @@ def train(args):
     if args.resume is not None:
         model = torch.load(args.resume)
 
-    # Resize 변경하고 싶으면 변경
-    '''
-    1024도 좋아보입니다!
-    '''
-    tf = A.Resize(512, 512)
+    # transforms
+    train_tf, val_tf = cf.transforms['train'], cf.transforms['val']
 
-    train_dataset = XRayDataset(is_train=True, transforms = tf, n_splits=args.n_splits, n_fold=args.n_fold)
-    valid_dataset = XRayDataset(is_train=False, transforms = tf, n_splits=args.n_splits, n_fold=args.n_fold)
+    train_dataset = XRayDataset(is_train=True, transforms = train_tf, n_splits=args.n_splits, n_fold=args.n_fold)
+    valid_dataset = XRayDataset(is_train=False, transforms = val_tf, n_splits=args.n_splits, n_fold=args.n_fold)
 
     train_loader = DataLoader(
         dataset=train_dataset,
