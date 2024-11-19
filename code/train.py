@@ -42,6 +42,47 @@ def dice_coef(y_true, y_pred):
     eps = 0.0001
     return (2. * intersection + eps) / (torch.sum(y_true_f, -1) + torch.sum(y_pred_f, -1) + eps)
 
+def validate(model, valid_loader, criterion, args):
+    total_valid_loss = 0
+    dices = []
+    
+    model.eval()
+    with torch.inference_mode():
+        for step, (images, masks) in tqdm(enumerate(valid_loader), total=len(valid_loader)):
+            images, masks = images.cuda(), masks.cuda()
+            model = model.cuda()
+            
+            outputs = model(images)
+            
+            output_h, output_w = outputs.size(-2), outputs.size(-1)
+            mask_h, mask_w = masks.size(-2), masks.size(-1)
+            
+            # restore original size
+            if output_h != mask_h or output_w != mask_w:
+                outputs = F.interpolate(outputs, size=(mask_h, mask_w), mode="bilinear")
+            
+            loss = criterion(outputs, masks)
+            total_valid_loss += loss.item()
+            
+            outputs = torch.sigmoid(outputs)
+            outputs = (outputs > args.threshold)
+            
+            dice = dice_coef(outputs, masks)
+            dices.append(dice.detach().cpu())
+        
+        # mean validation loss
+        mean_valid_loss = total_valid_loss/len(valid_loader)
+        
+        dices = torch.cat(dices, 0)
+        dices_per_class = torch.mean(dices, 0)
+        
+        print(f"Valid Mean Loss : {round(mean_valid_loss, 4)}")
+        
+        # mean dice coefficient
+        avg_dice = torch.mean(dices_per_class).item()
+    
+    return avg_dice, dices_per_class, mean_valid_loss
+
 # save_model 수정
 '''
 SAVED_DIR을 수정하면 원하는 DIR로 저장할 수 있습니다!!
@@ -89,7 +130,7 @@ class ModelCheckpoint:
 
     def save_best_model(self, model):
         # 가장 높은 dice 모델 저장
-        best_model_path = os.path.join(args.save_dir, 'best_model.pt')
+        best_model_path = os.path.join(args.saved_dir, 'best_model.pt')
         best_dice, best_epoch, _ = self.best_models[0]
         torch.save(model, best_model_path)
         print(f"Best model saved for epoch {best_epoch+1} with highest dice = {best_dice:.4f}")
@@ -154,6 +195,7 @@ def train(args):
         shuffle=True,
         num_workers=8,
         drop_last=True,
+        pin_memory=True
     )
 
     # 주의: validation data는 이미지 크기가 크기 때문에 `num_wokers`는 커지면 메모리 에러가 발생할 수 있습니다.
@@ -161,8 +203,9 @@ def train(args):
         dataset=valid_dataset,
         batch_size=args.batch_size,
         shuffle=False,
-        num_workers=2,
-        drop_last=False
+        num_workers=8,
+        drop_last=False,
+        pin_memory=True
     )
 
     # Loss function을 정의합니다.
@@ -229,60 +272,26 @@ def train(args):
 
             set_seed()
 
-            # init metrics
-            total_valid_loss = 0
-            dices = []
+            # validation
+            avg_dice, dices_per_class, mean_valid_loss = validate(model, valid_loader, criterion, args)
+            dice_str = [
+                f"{c:<12}: {d.item():.4f}"
+                for c, d in zip(args.classes, dices_per_class)
+            ]
+            dice_str = "\n".join(dice_str)
+            print(dice_str)
+            print(f"Valid Mean Loss : {round(mean_valid_loss, 4)}")
             
-            model.eval()
-            with torch.inference_mode():
-                for step, (images, masks) in tqdm(enumerate(valid_loader), total=len(valid_loader)):
-                    images, masks = images.cuda(), masks.cuda()
-                    model = model.cuda()
-                    
-                    outputs = model(images)
-                    
-                    output_h, output_w = outputs.size(-2), outputs.size(-1)
-                    mask_h, mask_w = masks.size(-2), masks.size(-1)
-                    
-                    # restore original size
-                    if output_h != mask_h or output_w != mask_w:
-                        outputs = F.interpolate(outputs, size=(mask_h, mask_w), mode="bilinear")
-                    
-                    loss = criterion(outputs, masks)
-                    total_valid_loss += loss.item()
-                    
-                    outputs = torch.sigmoid(outputs)
-                    outputs = (outputs > args.threshold).detach().cpu()
-                    masks = masks.detach().cpu()
-                    
-                    dice = dice_coef(outputs, masks)
-                    dices.append(dice)
+            # mean dice coefficient
+            print(f"Avg dice : {round(avg_dice, 4)}")
+            wandb.log({
+                "epoch": epoch + 1,
+                "valid_loss": mean_valid_loss,
+                "avg_dice": avg_dice,
+                **{f"dice_{cls}": score for cls, score in zip(args.classes, dices_per_class)}
+            })
                 
-                # mean validation loss
-                mean_valid_loss = total_valid_loss/len(valid_loader)
-                
-                dices = torch.cat(dices, 0)
-                dices_per_class = torch.mean(dices, 0)
-                dice_str = [
-                    f"{c:<12}: {d.item():.4f}"
-                    for c, d in zip(args.classes, dices_per_class)
-                ]
-                dice_str = "\n".join(dice_str)
-                print(dice_str)
-                print(f"Valid Mean Loss : {round(mean_valid_loss, 4)}")
-                
-                # mean dice coefficient
-                avg_dice = torch.mean(dices_per_class).item()
-
-                wandb.log({
-                    "epoch": epoch + 1,
-                    "valid_loss": mean_valid_loss,
-                    "avg_dice": avg_dice,
-                    **{f"dice_{cls}": score for cls, score in zip(args.classes, dices_per_class)}
-                })
-                
-
-                checkpoint.save_model(model, epoch, mean_valid_loss, avg_dice)
+            checkpoint.save_model(model, epoch, mean_valid_loss, avg_dice)
     checkpoint.save_best_model(model)
 
     wandb.finish()
@@ -305,13 +314,13 @@ if __name__ == "__main__":
     parser.add_argument('--ind2class', type=str, default=cf.IND2CLASS)
 
     # parameters
-    parser.add_argument('--batch_size', type=str, default=cf.BATCH_SIZE)
-    parser.add_argument('--lr', type=str, default=cf.LR)
-    parser.add_argument('--random_seed', type=str, default=cf.RANDOM_SEED)
-    parser.add_argument('--threshold', type=str, default=cf.THRESHOLD)
-    parser.add_argument('--num_epochs', type=str, default=cf.NUM_EPOCHS)
-    parser.add_argument('--val_every', type=str, default=cf.VAL_EVERY)
-    parser.add_argument('--num_ckpt', type=str, default=cf.NUM_CKPT)
+    parser.add_argument('--batch_size', type=int, default=cf.BATCH_SIZE)
+    parser.add_argument('--lr', type=float, default=cf.LR)
+    parser.add_argument('--random_seed', type=int, default=cf.RANDOM_SEED)
+    parser.add_argument('--threshold', type=float, default=cf.THRESHOLD)
+    parser.add_argument('--num_epochs', type=int, default=cf.NUM_EPOCHS)
+    parser.add_argument('--val_every', type=int, default=cf.VAL_EVERY)
+    parser.add_argument('--num_ckpt', type=int, default=cf.NUM_CKPT)
 
     # dir
     parser.add_argument('--resume', type=str, default=cf.RESUME)
