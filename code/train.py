@@ -42,6 +42,48 @@ def dice_coef(y_true, y_pred):
     eps = 0.0001
     return (2. * intersection + eps) / (torch.sum(y_true_f, -1) + torch.sum(y_pred_f, -1) + eps)
 
+def validate(model, valid_loader, criterion, args):
+    total_valid_loss = 0
+    dices = []
+    
+    model.eval()
+    with torch.inference_mode():
+        for step, (images, masks) in tqdm(enumerate(valid_loader), total=len(valid_loader)):
+            images, masks = images.cuda(), masks.cuda()
+            model = model.cuda()
+            
+            outputs = model(images)
+            
+            output_h, output_w = outputs.size(-2), outputs.size(-1)
+            mask_h, mask_w = masks.size(-2), masks.size(-1)
+            
+            # restore original size
+            if output_h != mask_h or output_w != mask_w:
+                outputs = F.interpolate(outputs, size=(mask_h, mask_w), mode="bilinear")
+            
+            loss = criterion(outputs, masks)
+            total_valid_loss += loss.item()
+            
+            outputs = torch.sigmoid(outputs)
+            outputs = (outputs > args.threshold)
+            
+            dice = dice_coef(outputs, masks)
+            dices.append(dice.detach().cpu())
+        
+        # mean validation loss
+        mean_valid_loss = total_valid_loss/len(valid_loader)
+        
+        dices = torch.cat(dices, 0)
+        dices_per_class = torch.mean(dices, 0)
+        
+        print(f"Valid Mean Loss : {round(mean_valid_loss, 4)}")
+        
+        # mean dice coefficient
+        avg_dice = torch.mean(dices_per_class).item()
+        print(f"Avg dice : {round(avg_dice, 4)}")
+    
+    return avg_dice, dices_per_class, mean_valid_loss
+
 # save_model 수정
 '''
 SAVED_DIR을 수정하면 원하는 DIR로 저장할 수 있습니다!!
@@ -229,60 +271,26 @@ def train(args):
 
             set_seed()
 
-            # init metrics
-            total_valid_loss = 0
-            dices = []
+            # validation
+            avg_dice, dices_per_class, mean_valid_loss = validate(model, valid_loader, criterion, args)
+            dice_str = [
+                f"{c:<12}: {d.item():.4f}"
+                for c, d in zip(args.classes, dices_per_class)
+            ]
+            dice_str = "\n".join(dice_str)
+            print(dice_str)
+            print(f"Valid Mean Loss : {round(mean_valid_loss, 4)}")
             
-            model.eval()
-            with torch.inference_mode():
-                for step, (images, masks) in tqdm(enumerate(valid_loader), total=len(valid_loader)):
-                    images, masks = images.cuda(), masks.cuda()
-                    model = model.cuda()
-                    
-                    outputs = model(images)
-                    
-                    output_h, output_w = outputs.size(-2), outputs.size(-1)
-                    mask_h, mask_w = masks.size(-2), masks.size(-1)
-                    
-                    # restore original size
-                    if output_h != mask_h or output_w != mask_w:
-                        outputs = F.interpolate(outputs, size=(mask_h, mask_w), mode="bilinear")
-                    
-                    loss = criterion(outputs, masks)
-                    total_valid_loss += loss.item()
-                    
-                    outputs = torch.sigmoid(outputs)
-                    outputs = (outputs > args.threshold).detach().cpu()
-                    masks = masks.detach().cpu()
-                    
-                    dice = dice_coef(outputs, masks)
-                    dices.append(dice)
+            # mean dice coefficient
+            print(f"Avg dice : {round(avg_dice, 4)}")
+            wandb.log({
+                "epoch": epoch + 1,
+                "valid_loss": mean_valid_loss,
+                "avg_dice": avg_dice,
+                **{f"dice_{cls}": score for cls, score in zip(args.classes, dices_per_class)}
+            })
                 
-                # mean validation loss
-                mean_valid_loss = total_valid_loss/len(valid_loader)
-                
-                dices = torch.cat(dices, 0)
-                dices_per_class = torch.mean(dices, 0)
-                dice_str = [
-                    f"{c:<12}: {d.item():.4f}"
-                    for c, d in zip(args.classes, dices_per_class)
-                ]
-                dice_str = "\n".join(dice_str)
-                print(dice_str)
-                print(f"Valid Mean Loss : {round(mean_valid_loss, 4)}")
-                
-                # mean dice coefficient
-                avg_dice = torch.mean(dices_per_class).item()
-
-                wandb.log({
-                    "epoch": epoch + 1,
-                    "valid_loss": mean_valid_loss,
-                    "avg_dice": avg_dice,
-                    **{f"dice_{cls}": score for cls, score in zip(args.classes, dices_per_class)}
-                })
-                
-
-                checkpoint.save_model(model, epoch, mean_valid_loss, avg_dice)
+            checkpoint.save_model(model, epoch, mean_valid_loss, avg_dice)
     checkpoint.save_best_model(model)
 
     wandb.finish()
