@@ -18,7 +18,7 @@ CLASS2IND = {v: i for i, v in enumerate(CLASSES)}
 IND2CLASS = {v: k for k, v in CLASS2IND.items()}
 
 # Hyperparameters
-BATCH_SIZE = 8
+BATCH_SIZE = 1
 LR = 1e-4
 RANDOM_SEED = 21
 THRESHOLD = 0.5

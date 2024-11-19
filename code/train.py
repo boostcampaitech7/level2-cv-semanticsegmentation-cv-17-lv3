@@ -196,6 +196,7 @@ def train(args):
         shuffle=True,
         num_workers=8,
         drop_last=True,
+        pin_memory=True
     )
 
     # 주의: validation data는 이미지 크기가 크기 때문에 `num_wokers`는 커지면 메모리 에러가 발생할 수 있습니다.
@@ -203,8 +204,9 @@ def train(args):
         dataset=valid_dataset,
         batch_size=args.batch_size,
         shuffle=False,
-        num_workers=2,
-        drop_last=False
+        num_workers=8,
+        drop_last=False,
+        pin_memory=True
     )
 
     # Loss function을 정의합니다.
