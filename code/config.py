@@ -59,6 +59,10 @@ OUTPUTS_NAME = "best_model.csv"
 PROJECT_NAME = 'project_name'
 EXP_NAME = None
 
+#early stopping
+PATIENCE = 5
+DELTA = 0.001
+
 if not os.path.exists(SAVED_DIR):
     os.makedirs(SAVED_DIR)
 
