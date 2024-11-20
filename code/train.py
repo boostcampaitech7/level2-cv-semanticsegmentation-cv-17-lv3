@@ -227,6 +227,11 @@ def train(args):
     elif args.optimizer == "lion":
         optimizer = Lion(model.parameters(), lr=args.lr, weight_decay=1e-4)
     
+    if args.scheduler == "CosineAnnealingLR":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50)
+    elif args.scheduler == "MultiStepLR":
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[15, 30], gamma=0.1)
+    
 
     # 시드를 설정합니다.
     set_seed()
@@ -300,6 +305,10 @@ def train(args):
             })
                 
             checkpoint.save_model(model, epoch, mean_valid_loss, avg_dice)
+            
+        if args.scheduler == 'CosineAnnealingLR' or args.scheduler == 'MultiStepLR':
+            scheduler.step()
+        
     checkpoint.save_best_model(model)
 
     wandb.finish()
@@ -337,6 +346,7 @@ if __name__ == "__main__":
 
     # optimizer
     parser.add_argument('--optimizer', type=str, default=cf.OPTIMIZER)
+    parser.add_argument('--scheduler', type=str, default=cf.SCHEDULER)
 
     # data
     parser.add_argument('--n_splits', type=int, default=cf.SPLITS)
