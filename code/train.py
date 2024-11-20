@@ -92,6 +92,46 @@ def validate(model, valid_loader, criterion, args):
 SAVED_DIR을 수정하면 원하는 DIR로 저장할 수 있습니다!!
 file_name도 수정하면 checkpoint를 원하는 이름으로 저장 가능!
 '''
+
+#Early Stopping
+class EarlyStopping:
+    def __init__(self, patience, mode, delta):
+        """
+        초기화 메서드:
+        - patience: 성능이 개선되지 않는 epoch 수 제한.
+        - mode: 성능을 개선으로 판단하는 기준 ("max"는 값이 클수록 좋고, "min"은 작을수록 좋음).
+        - delta: 성능 개선을 최소로 판단하는 값. delta 이상 변화가 있어야 개선으로 간주.
+        """
+        self.patience = patience
+        self.mode = mode
+        self.delta = delta
+        self.best_score = None  # 현재까지 가장 좋은 점수
+        self.counter = 0        # 개선되지 않은 epoch 횟수
+        self.early_stop = False # 조기 종료 여부
+
+    def __call__(self, current_score):
+        """
+        현재 점수에 따라 상태를 업데이트:
+        - best_score가 없거나 개선되었으면 점수를 갱신하고 counter 초기화.
+        - 개선되지 않았다면 counter 증가, patience 초과 시 early_stop 활성화.
+        """
+        if self.best_score is None or self._is_improvement(current_score):
+            self.best_score = current_score
+            self.counter = 0
+        else:
+            self.counter += 1
+            self.early_stop = self.counter >= self.patience
+
+    def _is_improvement(self, current_score):
+        """
+        현재 점수가 개선되었는지 확인:
+        - mode="max"이면 current_score > best_score + delta
+        - mode="min"이면 current_score < best_score - delta
+        """
+        return (current_score > self.best_score + self.delta) if self.mode == "max" else (current_score < self.best_score - self.delta)
+
+
+
 class ModelCheckpoint:
     def __init__(self):
         self.best_models = []
@@ -238,6 +278,9 @@ def train(args):
 
     checkpoint = ModelCheckpoint()
 
+    # EarlyStopping 초기화
+    early_stopping = EarlyStopping(patience=args.patience, delta=args.delta, mode="max")
+
     for epoch in range(args.num_epochs):
         model.train()
 
@@ -303,7 +346,13 @@ def train(args):
                 "avg_dice": avg_dice,
                 **{f"dice_{cls}": score for cls, score in zip(args.classes, dices_per_class)}
             })
-                
+
+            # EarlyStopping 체크
+            early_stopping(avg_dice)  
+            if early_stopping.early_stop:
+                print(f"Early stopping triggered at epoch {epoch + 1}.")
+                break 
+
             checkpoint.save_model(model, epoch, mean_valid_loss, avg_dice)
             
         if args.scheduler == 'CosineAnnealingLR' or args.scheduler == 'MultiStepLR':
@@ -355,6 +404,12 @@ if __name__ == "__main__":
     # Wandb
     parser.add_argument('--project', type=str, default=cf.PROJECT_NAME)
     parser.add_argument('--exp_name', default=cf.EXP_NAME)
+
+    # early stopping
+    parser.add_argument('--patience', type=int, default=cf.PATIENCE, 
+                        help="Number of epochs with no improvement before stopping.")
+    parser.add_argument('--delta', type=float, default=cf.DELTA, 
+                        help="Minimum change in the monitored metric to qualify as an improvement.")   
 
     args = parser.parse_args()
 
