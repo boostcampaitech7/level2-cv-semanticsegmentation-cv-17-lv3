@@ -22,6 +22,10 @@ import pandas as pd
 from tqdm.auto import tqdm
 from sklearn.model_selection import GroupKFold
 import albumentations as A
+# pip install adamp
+from adamp import AdamP
+# pip install lion-pytorch
+from lion_pytorch import Lion
 
 # torch
 import torch
@@ -216,6 +220,18 @@ def train(args):
         optimizer = optim.Adam(params=model.parameters(), lr=args.lr)
     elif args.optimizer == "adamw":
         optimizer = optim.AdamW(params=model.parameters(), lr=args.lr)
+    elif args.optimizer == "adamp":
+        optimizer = AdamP(params=model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=1e-2)
+    elif args.optimizer == "radam":
+        optimizer = optim.RAdam(params=model.parameters(), lr=args.lr, weight_decay=1e-4)
+    elif args.optimizer == "lion":
+        optimizer = Lion(model.parameters(), lr=args.lr, weight_decay=1e-4)
+    
+    if args.scheduler == "CosineAnnealingLR":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50)
+    elif args.scheduler == "MultiStepLR":
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[15, 30], gamma=0.1)
+    
 
     # 시드를 설정합니다.
     set_seed()
@@ -289,6 +305,10 @@ def train(args):
             })
                 
             checkpoint.save_model(model, epoch, mean_valid_loss, avg_dice)
+            
+        if args.scheduler == 'CosineAnnealingLR' or args.scheduler == 'MultiStepLR':
+            scheduler.step()
+        
     checkpoint.save_best_model(model)
 
     wandb.finish()
@@ -326,6 +346,7 @@ if __name__ == "__main__":
 
     # optimizer
     parser.add_argument('--optimizer', type=str, default=cf.OPTIMIZER)
+    parser.add_argument('--scheduler', type=str, default=cf.SCHEDULER)
 
     # data
     parser.add_argument('--n_splits', type=int, default=cf.SPLITS)
