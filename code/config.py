@@ -33,6 +33,7 @@ SAVED_DIR = "./checkpoints"
 OUTPUTS_DIR = "./outputs"
 
 OPTIMIZER = "adam"
+SCHEDULER = "no"
 
 # Data
 SPLITS = 5
