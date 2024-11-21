@@ -32,8 +32,12 @@ RESUME = None
 SAVED_DIR = "./checkpoints"
 OUTPUTS_DIR = "./outputs"
 
-OPTIMIZER = "adam"
-SCHEDULER = "no"
+# Optimizer and Scheduler
+OPTIMIZER = "adam" # Options: adam, adamw, adamp, radam, lion
+SCHEDULER = "no" # Options: CosineAnnealingLR, MultiStepLR
+
+# Loss functions
+LOSS = 'bce_loss' # Options: bce_loss, iou_loss, dice_loss, bce_dice_loss, bce_iou_loss
 
 # Data
 SPLITS = 5
@@ -49,7 +53,7 @@ transforms = {
     ])
 }
 
-# model
+# Model
 ENCODER_MODEL = "efficientnet-b0"
 ENCODER_MODEL_WEIGHTS = "imagenet"
 MODEL_NAME = "best_model.pt"
@@ -59,7 +63,7 @@ OUTPUTS_NAME = "best_model.csv"
 PROJECT_NAME = 'project_name'
 EXP_NAME = None
 
-#early stopping
+# Early stopping
 PATIENCE = 5
 DELTA = 0.001
 

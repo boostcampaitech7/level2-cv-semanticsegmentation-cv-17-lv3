@@ -38,6 +38,8 @@ from torchvision import models
 # visualization
 import matplotlib.pyplot as plt
 
+from loss import iou_loss, dice_loss, bce_dice_loss, bce_iou_loss
+
 def dice_coef(y_true, y_pred):
     y_true_f = y_true.flatten(2)
     y_pred_f = y_pred.flatten(2)
@@ -250,7 +252,17 @@ def train(args):
     )
 
     # Loss function을 정의합니다.
-    criterion = nn.BCEWithLogitsLoss()
+    if args.loss_fn == 'bce_loss':
+        criterion = nn.BCEWithLogitsLoss()
+    elif args.loss_fn == 'iou_loss':
+        criterion = iou_loss
+    elif args.loss_fn == 'dice_loss':
+        criterion = dice_loss
+    elif args.loss_fn == 'bce_dice_loss':
+        criterion = bce_dice_loss
+    elif args.loss_fn == 'bce_iou_loss':
+        criterion = bce_iou_loss
+
 
     # Optimizer, Scheduler를 정의합니다.
     '''
@@ -410,6 +422,9 @@ if __name__ == "__main__":
                         help="Number of epochs with no improvement before stopping.")
     parser.add_argument('--delta', type=float, default=cf.DELTA, 
                         help="Minimum change in the monitored metric to qualify as an improvement.")   
+
+    # loss
+    parser.add_argument('--loss_fn', type=str, default=cf.LOSS)
 
     args = parser.parse_args()
 
