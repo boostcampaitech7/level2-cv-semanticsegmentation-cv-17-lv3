@@ -54,6 +54,7 @@ transforms = {
 }
 
 # Model
+MODEL = 'UnetPlusPlus' # Options: UnetPlusPlus, Unet, FPN, Linknet, MAnet, PAN, PSPNet, DeepLabV3, DeepLabV3Plus, UPerNet
 ENCODER_MODEL = "efficientnet-b0"
 ENCODER_MODEL_WEIGHTS = "imagenet"
 MODEL_NAME = "best_model.pt"
@@ -65,7 +66,7 @@ EXP_NAME = None
 
 # Early stopping
 PATIENCE = 5
-DELTA = 0.001
+DELTA = 0.0001
 
 if not os.path.exists(SAVED_DIR):
     os.makedirs(SAVED_DIR)
