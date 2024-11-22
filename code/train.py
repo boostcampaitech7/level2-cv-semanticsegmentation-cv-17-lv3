@@ -39,6 +39,7 @@ from torchvision import models
 import matplotlib.pyplot as plt
 
 from loss import iou_loss, dice_loss, bce_dice_loss, bce_iou_loss
+from model import get_model
 
 def dice_coef(y_true, y_pred):
     y_true_f = y_true.flatten(2)
@@ -216,7 +217,8 @@ def train(args):
 
     pip install git+https://github.com/qubvel/segmentation_models.pytorch
     '''
-    model = smp.Unet(
+    model = get_model(args.model_name)
+    model = model(
         encoder_name=args.encoder_model, # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
         encoder_weights=args.encoder_model_weights,     # use `imagenet` pre-trained weights for encoder initialization
         in_channels=3,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
@@ -383,6 +385,7 @@ if __name__ == "__main__":
     스케줄러 및 다른 optimizer도 추가 가능
     '''
     # model
+    parser.add_argument('--model_name', type=str, default=cf.MODEL)
     parser.add_argument('--encoder_model', type=str, default=cf.ENCODER_MODEL)
     parser.add_argument('--encoder_model_weights', type=str, default=cf.ENCODER_MODEL_WEIGHTS)
 
