@@ -8,7 +8,7 @@ import wandb
 
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
-from models.model import SwinUnet as ViT_seg
+from models.model import SwinUnet
 
 import yaml
 
@@ -177,7 +177,7 @@ def train(args):
     
     config['MODEL']['PRETRAIN_CKPT'] = "./configs/swin_tiny_patch4_window7_224.pth"
 
-    model = ViT_seg(config)
+    model = SwinUnet(config)
 
     # model.load_state_dict(torch.load('./configs/swin_tiny_patch4_window7_224.pth'), strict=False)
 
@@ -220,11 +220,11 @@ def train(args):
     if args.optimizer == "adam":
         optimizer = optim.Adam(params=model.parameters(), lr=args.lr)
     elif args.optimizer == "adamw":
-        optimizer = optim.AdamW(params=model.parameters(), lr=args.lr)
+        optimizer = optim.AdamW(params=model.parameters(), lr=args.lr, weight_decay=0.05)
     elif args.optimizer == "SGD":
         optimizer = optim.SGD(params=model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0001)
 
-    # scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=5, T_mult=2)
+    scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=5, T_mult=2)
 
     # 시드를 설정합니다.
     set_seed()
@@ -244,6 +244,12 @@ def train(args):
 
             # outputs = model(images)['out']
             outputs = model(images)
+
+            output_h, output_w = outputs.size(-2), outputs.size(-1)
+            mask_h, mask_w = masks.size(-2), masks.size(-1)
+            
+            if output_h != mask_h or output_w != mask_w:
+                outputs = F.interpolate(outputs, size=(mask_h, mask_w), mode="bilinear")
 
             # loss를 계산합니다.
             loss = criterion(outputs, masks)
@@ -298,6 +304,8 @@ def train(args):
             })
 
             checkpoint.save_model(model, epoch, mean_valid_loss, avg_dice)
+        
+        scheduler.step()
 
     checkpoint.save_best_model(model)
 
