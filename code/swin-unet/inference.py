@@ -65,10 +65,21 @@ def set_seed():
     np.random.seed(args.random_seed)
     random.seed(args.random_seed)
 
-def test(model_name):
+def test(args):
     set_seed()
 
     model = torch.load(os.path.join(args.saved_dir, args.model_name))
+
+    """
+    사용하지 않으면 주석처리
+    """
+    transforms = tta.Compose(
+                [
+                    tta.HorizontalFlip()
+                ]
+            )
+
+    model = tta.SegmentationTTAWrapper(model, transforms)
 
     model = model.cuda()
     model.eval()
