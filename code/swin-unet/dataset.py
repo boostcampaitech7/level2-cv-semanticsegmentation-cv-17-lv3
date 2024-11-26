@@ -5,11 +5,11 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 import albumentations as A
-from config import TRAIN_IMAGE_ROOT, TEST_IMAGE_ROOT, LABEL_ROOT, CLASSES, CLASS2IND
+from config import TRAIN_IMAGE_ROOT, TEST_IMAGE_ROOT, LABEL_ROOT, CLASSES, CLASS2IND, SPLITS, FOLD
 from sklearn.model_selection import GroupKFold
 
 class XRayDataset(Dataset):
-    def __init__(self, is_train=True, transforms=None, n_splits=5, n_fold=0):
+    def __init__(self, is_train=True, transforms=None, n_splits=SPLITS, n_fold=FOLD):
         pngs = {
             os.path.relpath(os.path.join(root, fname), start=TRAIN_IMAGE_ROOT)
             for root, _dirs, files in os.walk(TRAIN_IMAGE_ROOT)
@@ -23,9 +23,6 @@ class XRayDataset(Dataset):
             for fname in files
             if os.path.splitext(fname)[1].lower() == ".json"
         }
-
-        jsons_fn_prefix = {os.path.splitext(fname)[0] for fname in jsons}
-        pngs_fn_prefix = {os.path.splitext(fname)[0] for fname in pngs}
 
         pngs = sorted(pngs)
         jsons = sorted(jsons)
@@ -42,8 +39,6 @@ class XRayDataset(Dataset):
         # dummy label
         ys = [0 for fname in _filenames]
 
-        # 전체 데이터의 20%를 validation data로 쓰기 위해 `n_splits`를
-        # 5으로 설정하여 KFold를 수행합니다.
         gkf = GroupKFold(n_splits=n_splits)
 
         filenames = []
@@ -58,8 +53,6 @@ class XRayDataset(Dataset):
                 labelnames += list(_labelnames[y])
 
             else:
-                if i != n_fold :
-                    continue
                 filenames = list(_filenames[y])
                 labelnames = list(_labelnames[y])
 

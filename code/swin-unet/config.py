@@ -2,9 +2,9 @@ import os
 import albumentations as A
 
 # Paths for dataset
-TRAIN_IMAGE_ROOT = "/data/ephemeral/home/level2-cv-semanticsegmentation-cv-17-lv3/data/train/DCM"
-TEST_IMAGE_ROOT = "/data/ephemeral/home/level2-cv-semanticsegmentation-cv-17-lv3/data/test/DCM"
-LABEL_ROOT = "/data/ephemeral/home/level2-cv-semanticsegmentation-cv-17-lv3/data/train/outputs_json"
+TRAIN_IMAGE_ROOT = "train_root"
+TEST_IMAGE_ROOT = "test_root"
+LABEL_ROOT = "label_root"
 
 # Class definitions
 CLASSES = [
@@ -26,13 +26,13 @@ THRESHOLD = 0.5
 
 NUM_EPOCHS = 150
 VAL_EVERY = 15
-NUM_CKPT = 3
+NUM_CKPT = 5
 
 RESUME = None
 SAVED_DIR = "./checkpoints"
 OUTPUTS_DIR = "./outputs"
 
-OPTIMIZER = "SGD"
+OPTIMIZER = "adam"
 
 # Data
 SPLITS = 5
@@ -53,7 +53,7 @@ MODEL_NAME = "best_model.pt"
 OUTPUTS_NAME = "best_model.csv"
 
 # WandB settings
-PROJECT_NAME = 'Gwonee'
+PROJECT_NAME = 'user_name'
 EXP_NAME = None
 
 if not os.path.exists(SAVED_DIR):

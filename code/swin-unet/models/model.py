@@ -40,7 +40,7 @@ class SwinUnet(nn.Module):
                                 qkv_bias=True,
                                 qk_scale=None,
                                 drop_rate=0.0,
-                                drop_path_rate=0.1,
+                                drop_path_rate=0.2,
                                 ape=False,
                                 patch_norm=True,
                                 use_checkpoint=False)
@@ -54,7 +54,7 @@ class SwinUnet(nn.Module):
         return logits
 
     def load_from(self, config):
-        pretrained_path = "./configs/swin_tiny_patch4_window7_224.pth"
+        pretrained_path = config['MODEL']['PRETRAIN_CKPT']
         if pretrained_path is not None:
             print("pretrained_path:{}".format(pretrained_path))
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
