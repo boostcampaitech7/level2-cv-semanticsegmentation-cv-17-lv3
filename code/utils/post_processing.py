@@ -63,6 +63,9 @@ def process(csv_path, output_csv_path):
     
     new_data.to_csv(output_csv_path, index=False)
     print(f'Success Create new csv file to {output_csv_path}')
+    
+    changed_rows = sum(ori_data['rle'] != new_data['rle'])
+    print(f'Changed Rows {changed_rows} of Total 8352 (proportion : {changed_rows*100/8352:.2f} %)')
 
 if __name__ == "__main__":
     # Argument parser 설정
