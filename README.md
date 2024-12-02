@@ -69,8 +69,7 @@
 
 </div>
 
-wrap up 레포트 : [wrap up report](https://github.com/boostcampaitech7/level2-cv-semanticsegmentation-cv-17-lv3/blob/docs/%2351/Hand%20Bone%20Image%20Segmentation%20Report.pdf)
-
+wrap up 레포트 : [wrap up report](https://github.com/boostcampaitech7/level2-cv-semanticsegmentation-cv-17-lv3/blob/main/Hand%20Bone%20Image%20Segmentation%20Report.pdf)
 <br/>
 
 ## 3. 💻 프로젝트 수행 
