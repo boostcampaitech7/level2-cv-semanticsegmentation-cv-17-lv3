@@ -78,7 +78,6 @@ wrap up 레포트 : [wrap up report](https://github.com/boostcampaitech7/level2-
 ### 3.1. 프로젝트 pipeline
 
 > EDA
-<br/>
 
 ![image](https://github.com/user-attachments/assets/571e98bf-4c48-43bb-8cac-1d4995297e7c)
 
