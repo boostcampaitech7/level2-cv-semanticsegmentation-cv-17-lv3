@@ -71,12 +71,15 @@
 
 wrap up 레포트 : [wrap up report](https://github.com/boostcampaitech7/level2-cv-semanticsegmentation-cv-17-lv3/blob/main/Hand%20Bone%20Image%20Segmentation%20Report.pdf)
 <br/>
+<br/>
 
 ## 3. 💻 프로젝트 수행 
 
 ### 3.1. 프로젝트 pipeline
 
-> EDA 
+> EDA
+<br/>
+
 ![image](https://github.com/user-attachments/assets/571e98bf-4c48-43bb-8cac-1d4995297e7c)
 
 모든 이미지 데이터를 살펴본 결과, 아래 특성을 확인함
@@ -99,7 +102,6 @@ wrap up 레포트 : [wrap up report](https://github.com/boostcampaitech7/level2-
   - Encoder : mobilenet_v2, efficientnet-b0, vgg19, resnet152, hrnet_w64, resnest14d
 - MMSegmentation : Segformer
 - Ultralytics : Yolo8, Yolo11
-<br/>
 <br/>
 
 ## 📈 4. 프로젝트 결과 
